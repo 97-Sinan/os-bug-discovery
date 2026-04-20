@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OS Bug Discovery — Cisco & Palo Alto Intelligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#05080f;--s1:#0c1118;--s2:#121a25;--s3:#1a2333;--s4:#222d3e;
+  --b1:rgba(255,255,255,.06);--b2:rgba(255,255,255,.11);--b3:rgba(255,255,255,.18);
+  --tx:#dde4f0;--mu:#5e6e8a;--mu2:#7d90ad;--mu3:#9fb0c8;
+  --cisco:#1BA0D7;--cisco-d:rgba(27,160,215,.1);--cisco-b:rgba(27,160,215,.25);
+  --pa:#FA582D;--pa-d:rgba(250,88,45,.1);--pa-b:rgba(250,88,45,.25);
+  --crit:#e53e3e;--high:#d97706;--med:#2563eb;--low:#16a34a;--info:#6b7280;
+  --acc:#3ecfcf;--acc-d:rgba(62,207,207,.08);--acc-b:rgba(62,207,207,.22);
+  --gold:#f59e0b;
+  --fn:'Syne',sans-serif;--fm:'JetBrains Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font-family:var(--fn);overflow-x:hidden;line-height:1.6}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(62,207,207,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(62,207,207,.02) 1px,transparent 1px);
+  background-size:56px 56px;pointer-events:none;z-index:0}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);pointer-events:none;z-index:0;animation-fill-mode:both}
+.o1{width:700px;height:700px;background:var(--cisco);top:-250px;right:-150px;opacity:.22;animation:d1 24s ease-in-out infinite}
+.o2{width:550px;height:550px;background:var(--pa);bottom:-100px;left:-200px;opacity:.2;animation:d2 28s ease-in-out infinite}
+.o3{width:400px;height:400px;background:var(--acc);top:45%;left:30%;opacity:.07;animation:d3 20s ease-in-out infinite}
+@keyframes d1{0%,100%{transform:translate(0,0)}50%{transform:translate(-60px,80px)}}
+@keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(80px,-60px)}}
+@keyframes d3{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,40px)}}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 2rem}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(5,8,15,.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--b1);padding:.8rem 0}
+.nav-i{display:flex;align-items:center;justify-content:space-between}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-ic{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--cisco),var(--acc));display:flex;align-items:center;justify-content:center}
+.nav-ic svg{width:16px;height:16px;fill:#fff}
+.nav-nm{font-size:13px;font-weight:700;letter-spacing:.04em}
+.nav-nm em{font-style:normal;color:var(--acc)}
+.nav-links{display:flex;gap:1.6rem}
+.nav-links a{color:var(--mu2);font-size:11px;text-decoration:none;letter-spacing:.07em;font-family:var(--fm);transition:color .2s}
+.nav-links a:hover{color:var(--tx)}
+.nav-cta{background:var(--acc);color:#05080f;border:none;padding:7px 16px;border-radius:6px;font-family:var(--fn);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.05em;transition:all .2s}
+.nav-cta:hover{background:#52e0e0;transform:translateY(-1px)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;padding:8rem 0 5rem}
+.hero-content{max-width:760px}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:var(--acc-d);border:1px solid var(--acc-b);border-radius:100px;padding:4px 13px;margin-bottom:1.75rem;font-family:var(--fm);font-size:11px;color:var(--acc);letter-spacing:.1em;animation:fu .8s both}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--acc);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.hero h1{font-size:clamp(40px,5.8vw,74px);font-weight:800;line-height:1.06;letter-spacing:-.025em;margin-bottom:1.35rem;animation:fu .8s .1s both}
+.c-cisco{color:var(--cisco)}.c-pa{color:var(--pa)}.c-acc{color:var(--acc)}
+.hero-sub{font-size:16px;color:var(--mu3);max-width:540px;line-height:1.8;margin-bottom:2.25rem;animation:fu .8s .2s both;font-weight:400}
+.hero-acts{display:flex;gap:.8rem;flex-wrap:wrap;animation:fu .8s .3s both}
+.btn-acc{background:var(--acc);color:#05080f;border:none;padding:12px 24px;border-radius:8px;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .25s;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.btn-acc:hover{background:#52e0e0;transform:translateY(-2px);box-shadow:0 12px 40px rgba(62,207,207,.28)}
+.btn-out{background:transparent;color:var(--tx);border:1px solid var(--b2);padding:12px 24px;border-radius:8px;font-family:var(--fn);font-size:13px;font-weight:600;cursor:pointer;transition:all .25s;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.btn-out:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-d)}
+.hero-stats{display:flex;gap:2rem;margin-top:2.75rem;animation:fu .8s .4s both;padding-top:2.25rem;border-top:1px solid var(--b1);flex-wrap:wrap}
+.hst .hn{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.hst .hl{font-size:10px;color:var(--mu);letter-spacing:.09em;font-family:var(--fm);margin-top:2px}
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* SOURCE TICKER */
+.ticker{background:var(--s1);border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:.65rem 0;overflow:hidden}
+.ticker-inner{display:flex;white-space:nowrap;animation:tick 45s linear infinite}
+.ticker-inner:hover{animation-play-state:paused}
+.tick-item{display:inline-flex;align-items:center;gap:7px;padding:0 1.6rem;font-family:var(--fm);font-size:10px;color:var(--mu2);letter-spacing:.05em}
+.tick-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.tick-item a{color:inherit;text-decoration:none;transition:color .2s}
+.tick-item a:hover{color:var(--acc)}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* SECTIONS */
+section{padding:5rem 0}
+.sec-lbl{font-family:var(--fm);font-size:10px;color:var(--acc);letter-spacing:.16em;text-transform:uppercase;margin-bottom:.65rem;display:flex;align-items:center;gap:9px}
+.sec-lbl::after{content:'';width:34px;height:1px;background:var(--acc);opacity:.4}
+.sec-title{font-size:clamp(26px,3.6vw,40px);font-weight:800;letter-spacing:-.02em;margin-bottom:.65rem}
+.sec-sub{font-size:15px;color:var(--mu3);max-width:500px;line-height:1.75}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .65s ease,transform .65s ease}
+.reveal.vis{opacity:1;transform:translateY(0)}
+
+/* ═══════════════════════════════════════
+   AI DIAGNOSTIC ENGINE — MAIN FEATURE
+═══════════════════════════════════════ */
+#diagnose{padding:5rem 0}
+.diag-wrap{border:1px solid var(--b2);border-radius:18px;overflow:hidden;background:var(--s1);margin-top:2rem;box-shadow:0 40px 120px rgba(0,0,0,.5)}
+.diag-header{background:var(--s2);padding:1.1rem 1.5rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid var(--b1)}
+.diag-dots{display:flex;gap:5px}
+.diag-dots span{width:10px;height:10px;border-radius:50%}
+.diag-title-bar{font-family:var(--fm);font-size:11px;color:var(--mu);margin-left:4px}
+.ai-badge{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:10px;color:var(--gold);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:100px;padding:3px 10px}
+.ai-spark{width:8px;height:8px;background:var(--gold);border-radius:50%;animation:pulse 1.5s infinite}
+
+.diag-body{padding:2rem}
+
+/* VENDOR SELECTOR */
+.vendor-sel{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:1.5rem;border-radius:10px;overflow:hidden}
+.vs-opt{background:var(--s3);padding:1rem 1.25rem;cursor:pointer;transition:all .2s;border:2px solid transparent;display:flex;align-items:center;gap:12px;user-select:none}
+.vs-opt:hover{background:var(--s4)}
+.vs-opt.sel-ci{background:var(--cisco-d);border-color:rgba(27,160,215,.4)}
+.vs-opt.sel-pa{background:var(--pa-d);border-color:rgba(250,88,45,.4)}
+.vs-logo{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vs-ci{background:rgba(27,160,215,.15);border:1px solid rgba(27,160,215,.2)}
+.vs-pa{background:rgba(250,88,45,.15);border:1px solid rgba(250,88,45,.2)}
+.vs-name{font-size:14px;font-weight:700}
+.vs-ci-c{color:var(--cisco)}.vs-pa-c{color:var(--pa)}
+.vs-sub{font-size:11px;color:var(--mu2);font-family:var(--fm);margin-top:2px}
+
+/* INPUT GRID */
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.input-grid.three{grid-template-columns:1fr 1fr 1fr}
+.field-group label{display:block;font-size:10px;color:var(--mu);letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px;font-family:var(--fm)}
+.field-group input,.field-group select,.field-group textarea{
+  width:100%;font-family:var(--fm);font-size:12px;padding:9px 12px;
+  border-radius:7px;background:var(--s3);border:1px solid var(--b2);
+  color:var(--tx);outline:none;transition:border-color .2s,box-shadow .2s;
+  resize:none;
+}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{
+  border-color:var(--acc);box-shadow:0 0 0 3px rgba(62,207,207,.1)
+}
+.field-group select option{background:var(--s3)}
+.field-group textarea{height:120px;line-height:1.6}
+.field-group.full{grid-column:1/-1}
+
+/* PROBLEM DESCRIPTION AREA */
+.prob-wrap{margin-bottom:1.5rem}
+.prob-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.prob-label{font-size:10px;color:var(--mu);letter-spacing:.09em;text-transform:uppercase;font-family:var(--fm)}
+.prob-hint{font-size:10px;color:var(--mu);font-family:var(--fm);display:flex;align-items:center;gap:5px}
+.hint-dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.prob-textarea{
+  width:100%;font-family:var(--fm);font-size:12px;padding:14px 14px;
+  border-radius:10px;background:var(--s3);border:1px solid var(--b2);
+  color:var(--tx);outline:none;transition:border-color .2s,box-shadow .2s;
+  resize:none;height:140px;line-height:1.7;
+}
+.prob-textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,158,11,.1)}
+.prob-textarea::placeholder{color:var(--mu);opacity:.7}
+.char-counter{text-align:right;font-size:10px;color:var(--mu);font-family:var(--fm);margin-top:4px}
+
+/* SOURCES PANEL */
+.sources-panel{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem}
+.sp-title{font-size:10px;color:var(--mu);letter-spacing:.09em;text-transform:uppercase;font-family:var(--fm);margin-bottom:.6rem;display:flex;align-items:center;gap:7px}
+.sp-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--acc);flex-shrink:0}
+.sources-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.src-chip{background:var(--s3);border:1px solid var(--b1);border-radius:6px;padding:6px 9px;font-family:var(--fm);font-size:9px;color:var(--mu2);display:flex;align-items:center;gap:5px;cursor:pointer;transition:all .15s;text-decoration:none;overflow:hidden}
+.src-chip:hover{border-color:var(--acc);color:var(--acc)}
+.src-chip .sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.src-chip.ci-src .sdot{background:var(--cisco)}.src-chip.pa-src .sdot{background:var(--pa)}
+.src-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ANALYZE BUTTON */
+.analyze-btn{
+  width:100%;padding:14px;border:none;border-radius:10px;
+  font-family:var(--fn);font-size:14px;font-weight:700;cursor:pointer;
+  color:#05080f;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:10px;
+  letter-spacing:.05em;
+}
+.analyze-btn.cisco{background:var(--cisco)}.analyze-btn.cisco:hover{background:#24b5ef}
+.analyze-btn.pa{background:var(--pa)}.analyze-btn.pa:hover{background:#ff7047}
+.analyze-btn:disabled{background:var(--s3);color:var(--mu);cursor:not-allowed}
+.analyze-btn svg{width:18px;height:18px;fill:currentColor}
+
+/* THINKING ANIMATION */
+.thinking-wrap{display:none;margin-top:1.25rem}
+.thinking-wrap.show{display:block}
+.think-bar{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:1rem 1.25rem}
+.think-header{display:flex;align-items:center;gap:10px;margin-bottom:.75rem}
+.think-icon{width:32px;height:32px;border-radius:8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);display:flex;align-items:center;justify-content:center}
+.think-icon svg{width:16px;height:16px;fill:var(--gold)}
+.think-title{font-size:13px;font-weight:600;color:var(--gold)}
+.think-sub{font-size:11px;color:var(--mu);font-family:var(--fm);margin-top:1px}
+.think-steps{display:flex;flex-direction:column;gap:5px}
+.think-step{display:flex;align-items:center;gap:8px;font-family:var(--fm);font-size:11px;color:var(--mu2);padding:4px 0;opacity:.4;transition:opacity .3s}
+.think-step.active{opacity:1;color:var(--acc)}
+.think-step.done{opacity:.7;color:var(--low)}
+.think-step.error{opacity:1;color:var(--crit)}
+.step-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.step-icon.waiting{background:var(--s3);border:1px solid var(--b2)}
+.step-icon.spinning{background:rgba(62,207,207,.15);border:1px solid var(--acc-b);animation:spin .8s linear infinite}
+.step-icon.checked{background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3)}
+.step-icon.errored{background:rgba(229,62,62,.15);border:1px solid rgba(229,62,62,.3)}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.sources-checked{margin-top:.75rem;padding:.75rem;background:var(--s3);border-radius:7px}
+.sc-label{font-size:10px;color:var(--mu);font-family:var(--fm);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.sc-list{display:flex;flex-wrap:wrap;gap:5px}
+.sc-pill{font-family:var(--fm);font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(62,207,207,.08);border:1px solid var(--acc-b);color:var(--acc)}
+
+/* RESULTS PANEL */
+.results-wrap{display:none;margin-top:1.5rem}
+.results-wrap.show{display:block}
+.result-verdict{border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:flex;align-items:flex-start;gap:14px}
+.result-verdict.is-bug{background:rgba(229,62,62,.08);border:1px solid rgba(229,62,62,.25)}
+.result-verdict.not-bug{background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.25)}
+.result-verdict.inconclusive{background:rgba(217,119,6,.08);border:1px solid rgba(217,119,6,.25)}
+.verdict-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.verdict-icon svg{width:22px;height:22px}
+.is-bug .verdict-icon{background:rgba(229,62,62,.12)}
+.not-bug .verdict-icon{background:rgba(22,163,74,.12)}
+.inconclusive .verdict-icon{background:rgba(217,119,6,.12)}
+.verdict-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.is-bug .verdict-title{color:var(--crit)}
+.not-bug .verdict-title{color:var(--low)}
+.inconclusive .verdict-title{color:var(--high)}
+.verdict-summary{font-size:13px;color:var(--mu3);line-height:1.65}
+
+.results-meta{display:flex;gap:.75rem;margin-bottom:1.1rem;flex-wrap:wrap}
+.r-meta-pill{font-family:var(--fm);font-size:10px;padding:4px 10px;border-radius:6px;background:var(--s2);border:1px solid var(--b1);color:var(--mu2);display:flex;align-items:center;gap:5px}
+.r-meta-pill .dot{width:5px;height:5px;border-radius:50%}
+
+.bugs-section{margin-top:1.1rem}
+.bugs-title{font-size:11px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;font-family:var(--fm);margin-bottom:.75rem;display:flex;align-items:center;gap:8px}
+.bugs-count{background:rgba(229,62,62,.12);color:var(--crit);border-radius:4px;padding:1px 7px;font-size:10px}
+.bug-card{background:var(--s2);border:1px solid var(--b1);border-radius:10px;margin-bottom:.75rem;overflow:hidden;transition:border-color .2s}
+.bug-card:hover{border-color:var(--b2)}
+.bug-card-header{padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.bug-sev-bar{width:3px;border-radius:2px;flex-shrink:0;margin-top:3px;min-height:40px}
+.sev-critical{background:var(--crit)}.sev-high{background:var(--high)}.sev-medium{background:var(--med)}.sev-low{background:var(--low)}.sev-info{background:var(--info)}
+.bug-id{font-family:var(--fm);font-size:10px;color:var(--mu2);margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.bug-title{font-size:13px;font-weight:600;color:var(--tx);line-height:1.45}
+.bug-badges{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.bbadge{font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:3px;font-weight:600}
+.bc{background:rgba(229,62,62,.12);color:var(--crit)}
+.bh{background:rgba(217,119,6,.12);color:var(--high)}
+.bm{background:rgba(37,99,235,.12);color:var(--med)}
+.bl{background:rgba(22,163,74,.12);color:var(--low)}
+.bi{background:rgba(107,114,128,.12);color:var(--info)}
+.ba{background:rgba(62,207,207,.1);color:var(--acc);border:1px solid var(--acc-b)}
+.bug-expand-icon{margin-left:auto;color:var(--mu);flex-shrink:0;transition:transform .2s}
+.bug-expand-icon.open{transform:rotate(180deg)}
+.bug-body{display:none;padding:0 1.1rem 1.1rem;border-top:1px solid var(--b1);margin-top:0}
+.bug-body.open{display:block}
+.bug-section{margin-top:.85rem}
+.bug-section-label{font-family:var(--fm);font-size:9px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem}
+.bug-section-content{font-size:12px;color:var(--mu3);line-height:1.65}
+.bug-section-content code{font-family:var(--fm);font-size:11px;background:var(--s3);border:1px solid var(--b1);border-radius:4px;padding:4px 8px;display:block;color:var(--acc);margin-top:4px;word-break:break-all}
+.bug-versions{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.bv{font-family:var(--fm);font-size:10px;padding:2px 8px;border-radius:4px;background:var(--s3);border:1px solid var(--b1);color:var(--mu2)}
+.bug-source-link{display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:10px;color:var(--acc);text-decoration:none;margin-top:.5rem;padding:4px 10px;background:var(--acc-d);border:1px solid var(--acc-b);border-radius:5px;transition:all .15s}
+.bug-source-link:hover{background:rgba(62,207,207,.15)}
+
+.no-bugs{text-align:center;padding:2rem;background:var(--s2);border-radius:10px;border:1px solid var(--b1)}
+.no-bugs-icon{font-size:36px;margin-bottom:.75rem;opacity:.5}
+.no-bugs h4{font-size:14px;font-weight:600;margin-bottom:.35rem;color:var(--low)}
+.no-bugs p{font-size:12px;color:var(--mu2);line-height:1.6}
+
+.error-panel{background:rgba(229,62,62,.06);border:1px solid rgba(229,62,62,.2);border-radius:10px;padding:1rem 1.25rem;margin-top:1rem;display:none}
+.error-panel.show{display:block}
+.error-panel p{font-size:12px;color:var(--mu3);font-family:var(--fm)}
+
+/* VENDOR GRID */
+.vg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:2rem;border-radius:14px;overflow:hidden}
+.vc{background:var(--s1);padding:2rem;position:relative;overflow:hidden;transition:background .3s}
+.vc:hover{background:var(--s2)}
+.vc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.vc.ci::before{background:var(--cisco)}.vc.pa::before{background:var(--pa)}
+.vc-logo{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:1rem}
+.vc.ci .vc-logo{background:var(--cisco-d);border:1px solid var(--cisco-b)}
+.vc.pa .vc-logo{background:var(--pa-d);border:1px solid var(--pa-b)}
+.vc h3{font-size:18px;font-weight:700;margin-bottom:.3rem}
+.vc.ci h3{color:var(--cisco)}.vc.pa h3{color:var(--pa)}
+.vc p{font-size:12px;color:var(--mu2);line-height:1.7;margin-bottom:1rem}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-family:var(--fm);font-size:9px;padding:2px 8px;border-radius:3px;letter-spacing:.05em}
+.ci-tag{background:var(--cisco-d);color:var(--cisco);border:1px solid var(--cisco-b)}
+.pa-tag{background:var(--pa-d);color:var(--pa);border:1px solid var(--pa-b)}
+.vc-srcs{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--b1)}
+.vc-srcs h4{font-size:9px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem;font-family:var(--fm)}
+.vc-srcs a{display:block;font-family:var(--fm);font-size:10px;color:var(--mu2);text-decoration:none;padding:1px 0;transition:color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc-srcs a:hover{color:var(--acc)}
+.vc-srcs a::before{content:'↗ ';color:var(--acc);opacity:.6}
+
+/* EOL TABLE */
+.eol-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:2rem;border-radius:12px;overflow:hidden}
+.eol-card{background:var(--s1);padding:1.5rem}
+.eol-card h3{font-size:13px;font-weight:700;margin-bottom:.85rem}
+.eol-card.ci h3{color:var(--cisco)}.eol-card.pa h3{color:var(--pa)}
+.eol-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.eol-tbl th{text-align:left;font-family:var(--fm);font-size:9px;color:var(--mu);letter-spacing:.08em;text-transform:uppercase;padding:3px 0 6px;border-bottom:1px solid var(--b1)}
+.eol-tbl td{padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03);color:var(--mu2);vertical-align:top}
+.eol-tbl td:first-child{color:var(--tx);font-weight:500;width:42%;font-size:11px}
+.eb{font-family:var(--fm);font-size:9px;padding:1px 6px;border-radius:3px;display:inline-block}
+.eb-eos{background:rgba(217,119,6,.12);color:var(--high)}.eb-eol{background:rgba(229,62,62,.12);color:var(--crit)}.eb-act{background:rgba(22,163,74,.12);color:var(--low)}
+
+/* CTA */
+.cta-sec{padding:4.5rem 0;text-align:center}
+.cta-box{background:var(--s1);border:1px solid var(--b2);border-radius:18px;padding:3rem 2rem;max-width:620px;margin:0 auto;position:relative;overflow:hidden}
+.cta-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cisco),var(--acc),var(--pa))}
+.cta-box h2{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-bottom:.65rem}
+.cta-box p{color:var(--mu3);font-size:14px;margin-bottom:1.5rem}
+.cta-btns{display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap}
+
+/* FOOTER */
+footer{border-top:1px solid var(--b1);padding:1.5rem 0}
+.fi{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.85rem}
+.fl{font-size:11px;color:var(--mu);font-family:var(--fm)}.fl em{color:var(--acc);font-style:normal}
+.flinks{display:flex;gap:1.3rem}
+.flinks a{font-size:10px;color:var(--mu);text-decoration:none;font-family:var(--fm);letter-spacing:.05em;transition:color .2s}
+.flinks a:hover{color:var(--tx)}
+
+@media(max-width:768px){.vg,.eol-grid,.vendor-sel{grid-template-columns:1fr}.input-grid,.input-grid.three{grid-template-columns:1fr}.sources-grid{grid-template-columns:repeat(2,1fr)}.nav-links{display:none}}
+</style>
+</head>
+<body>
+<div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+
+<!-- NAV -->
+<nav><div class="wrap nav-i">
+  <div class="nav-logo">
+    <div class="nav-ic"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg></div>
+    <span class="nav-nm">OS Bug <em>Discovery</em></span>
+  </div>
+  <div class="nav-links">
+    <a href="#diagnose">AI Diagnostic</a>
+    <a href="#vendors">Vendors</a>
+    <a href="#eol">EOL/EOS</a>
+  </div>
+  <button class="nav-cta" onclick="document.getElementById('diagnose').scrollIntoView({behavior:'smooth'})">Run Diagnostic</button>
+</div></nav>
+
+<!-- HERO -->
+<section class="hero"><div class="wrap"><div class="hero-content">
+  <div class="hero-badge"><span class="live-dot"></span>AI-Powered · Cisco PSIRT + PANW Advisories + Live Sources</div>
+  <h1>Describe your problem.<br>We identify the <span class="c-acc">bug</span>.</h1>
+  <p class="hero-sub">Enter your platform details and describe what's going wrong. The AI engine cross-references your symptoms against official <span class="c-cisco">Cisco</span> and <span class="c-pa">Palo Alto</span> bug databases, field notices, community reports, and EOL/EOS registries — and tells you exactly what you're hitting.</p>
+  <div class="hero-acts">
+    <button class="btn-acc" onclick="document.getElementById('diagnose').scrollIntoView({behavior:'smooth'})">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+      Start AI Diagnostic
+    </button>
+    <a class="btn-out" href="#vendors">View Sources</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hst"><div class="hn c-cisco">19</div><div class="hl">Cisco CVEs</div></div>
+    <div class="hst"><div class="hn c-pa">18</div><div class="hl">PA CVEs</div></div>
+    <div class="hst"><div class="hn" style="color:var(--crit)">8+</div><div class="hl">Official sources</div></div>
+    <div class="hst"><div class="hn" style="color:var(--gold)">AI</div><div class="hl">Bug matching</div></div>
+  </div>
+</div></div></section>
+
+<!-- SOURCE TICKER -->
+<div class="ticker" id="sources"><div class="ticker-inner">
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank">Cisco Software Checker</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://sec.cloudapps.cisco.com/security/center/publicationListing.x" target="_blank">Cisco PSIRT Advisories</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/support/web/tsd-products-field-notice-summary.html" target="_blank">Cisco Field Notices</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/products/eos-eol-listing.html" target="_blank">Cisco EOS/EOL Listing</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/support/web/tools/bst/bsthelp/index.html" target="_blank">Cisco Bug Search Tool</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://community.cisco.com/" target="_blank">Cisco Community</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://cisco.com" target="_blank">cisco.com</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://security.paloaltonetworks.com" target="_blank">PANW Security Advisories</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com" target="_blank">Palo Alto LIVEcommunity</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates" target="_blank">PANW Hardware EOL</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com/t5/blogs/ct-p/Blogs" target="_blank">PANW Blogs</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com/t5/tools/ct-p/Tools" target="_blank">PANW Tools</a></span>
+  <!-- duplicate for seamless loop -->
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank">Cisco Software Checker</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://sec.cloudapps.cisco.com/security/center/publicationListing.x" target="_blank">Cisco PSIRT Advisories</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/support/web/tsd-products-field-notice-summary.html" target="_blank">Cisco Field Notices</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/products/eos-eol-listing.html" target="_blank">Cisco EOS/EOL Listing</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://www.cisco.com/c/en/us/support/web/tools/bst/bsthelp/index.html" target="_blank">Cisco Bug Search Tool</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--cisco)"></span><a href="https://community.cisco.com/" target="_blank">Cisco Community</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://security.paloaltonetworks.com" target="_blank">PANW Security Advisories</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com" target="_blank">Palo Alto LIVEcommunity</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates" target="_blank">PANW Hardware EOL</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com/t5/blogs/ct-p/Blogs" target="_blank">PANW Blogs</a></span>
+  <span class="tick-item"><span class="tick-dot" style="background:var(--pa)"></span><a href="https://live.paloaltonetworks.com/t5/tools/ct-p/Tools" target="_blank">PANW Tools</a></span>
+</div></div>
+
+<!-- AI DIAGNOSTIC ENGINE -->
+<section id="diagnose"><div class="wrap">
+  <div class="reveal">
+    <div class="sec-lbl">AI Diagnostic Engine</div>
+    <h2 class="sec-title">Describe your issue — we'll find the bug</h2>
+    <p class="sec-sub">Fill in your system details, describe your symptoms in plain language, and the AI will cross-reference all official sources to identify matching bugs and advisories.</p>
+  </div>
+  <div class="diag-wrap reveal">
+    <div class="diag-header">
+      <div class="diag-dots"><span style="background:#FF5F57"></span><span style="background:#FEBC2E"></span><span style="background:#28C840"></span></div>
+      <span class="diag-title-bar">OS Bug Discovery · AI Diagnostic · VAF v4.1</span>
+      <div class="ai-badge"><span class="ai-spark"></span>AI-Powered Analysis</div>
+    </div>
+    <div class="diag-body">
+
+      <!-- VENDOR SELECT -->
+      <div class="vendor-sel" id="vendor-sel">
+        <div class="vs-opt sel-ci" id="vs-ci" onclick="selVendor('cisco')">
+          <div class="vs-logo vs-ci"><svg viewBox="0 0 24 24" fill="#1BA0D7" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/></svg></div>
+          <div>
+            <div class="vs-name vs-ci-c">Cisco Systems</div>
+            <div class="vs-sub">IOS XE · IOS XR · NX-OS · ASA · FTD · SD-WAN</div>
+          </div>
+        </div>
+        <div class="vs-opt" id="vs-pa" onclick="selVendor('pa')">
+          <div class="vs-logo vs-pa"><svg viewBox="0 0 24 24" fill="#FA582D" width="22" height="22"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg></div>
+          <div>
+            <div class="vs-name vs-pa-c">Palo Alto Networks</div>
+            <div class="vs-sub">PAN-OS · Panorama · GlobalProtect · Prisma · Cortex</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM FIELDS -->
+      <div class="input-grid">
+        <div class="field-group">
+          <label>Platform / OS</label>
+          <select id="f-platform">
+            <option value="">Select platform...</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Software Version</label>
+          <input type="text" id="f-version" placeholder="e.g. 17.9.3a  or  10.2.9-h1"/>
+        </div>
+      </div>
+      <div class="input-grid three">
+        <div class="field-group">
+          <label>Device Model</label>
+          <input type="text" id="f-model" placeholder="e.g. ASR 9000 / PA-3220"/>
+        </div>
+        <div class="field-group">
+          <label>Functionality / Feature</label>
+          <input type="text" id="f-feature" placeholder="e.g. OSPF, VPN, GlobalProtect"/>
+        </div>
+        <div class="field-group">
+          <label>Scan Depth</label>
+          <select id="f-depth">
+            <option>Surface — Quick match</option>
+            <option selected>Standard — Full analysis</option>
+            <option>Deep — Thorough + community</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PROBLEM DESCRIPTION -->
+      <div class="prob-wrap">
+        <div class="prob-label-row">
+          <span class="prob-label">Problem Description</span>
+          <span class="prob-hint"><span class="hint-dot"></span>Be specific: symptoms, error messages, logs, behavior</span>
+        </div>
+        <textarea class="prob-textarea" id="f-problem" maxlength="2000" placeholder="Describe what you're experiencing in detail. For example:&#10;• 'Interface GigabitEthernet0/0 drops every 4-6 hours and shows error: %OSPF-5-ADJCHG: Process 1, Nbr 192.168.1.1 changed state to Down'&#10;• 'GlobalProtect gateway hangs after 100+ concurrent sessions, CPU spikes to 100%'&#10;• 'Device reloads unexpectedly when processing SNMP polls from NMS — no crash dump generated'&#10;&#10;The more detail you provide, the more accurate the bug match." oninput="updateCounter()"></textarea>
+        <div class="char-counter"><span id="char-count">0</span> / 2000 characters</div>
+      </div>
+
+      <!-- SOURCES PANEL -->
+      <div class="sources-panel" id="sources-panel">
+        <div class="sp-title">Sources that will be cross-referenced for your analysis</div>
+        <div class="sources-grid" id="sources-grid-ci">
+          <a class="src-chip ci-src" href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank"><span class="sdot"></span><span>Software Checker</span></a>
+          <a class="src-chip ci-src" href="https://sec.cloudapps.cisco.com/security/center/publicationListing.x" target="_blank"><span class="sdot"></span><span>PSIRT Advisories</span></a>
+          <a class="src-chip ci-src" href="https://www.cisco.com/c/en/us/support/web/tsd-products-field-notice-summary.html" target="_blank"><span class="sdot"></span><span>Field Notices</span></a>
+          <a class="src-chip ci-src" href="https://www.cisco.com/c/en/us/products/eos-eol-listing.html" target="_blank"><span class="sdot"></span><span>EOS/EOL Listing</span></a>
+          <a class="src-chip ci-src" href="https://www.cisco.com/c/en/us/support/web/tools/bst/bsthelp/index.html" target="_blank"><span class="sdot"></span><span>Bug Search Tool</span></a>
+          <a class="src-chip ci-src" href="https://community.cisco.com/" target="_blank"><span class="sdot"></span><span>Cisco Community</span></a>
+          <a class="src-chip ci-src" href="https://cisco.com" target="_blank"><span class="sdot"></span><span>cisco.com</span></a>
+          <a class="src-chip ci-src" href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank"><span class="sdot"></span><span>CVE Database</span></a>
+        </div>
+        <div class="sources-grid" id="sources-grid-pa" style="display:none">
+          <a class="src-chip pa-src" href="https://security.paloaltonetworks.com" target="_blank"><span class="sdot"></span><span>PANW Advisories</span></a>
+          <a class="src-chip pa-src" href="https://live.paloaltonetworks.com" target="_blank"><span class="sdot"></span><span>LIVEcommunity</span></a>
+          <a class="src-chip pa-src" href="https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates" target="_blank"><span class="sdot"></span><span>Hardware EOL Dates</span></a>
+          <a class="src-chip pa-src" href="https://live.paloaltonetworks.com/t5/blogs/ct-p/Blogs" target="_blank"><span class="sdot"></span><span>PANW Blogs</span></a>
+          <a class="src-chip pa-src" href="https://live.paloaltonetworks.com/t5/tools/ct-p/Tools" target="_blank"><span class="sdot"></span><span>PANW Tools</span></a>
+          <a class="src-chip pa-src" href="https://paloaltonetworks.com" target="_blank"><span class="sdot"></span><span>paloaltonetworks.com</span></a>
+          <a class="src-chip pa-src" href="https://security.paloaltonetworks.com" target="_blank"><span class="sdot"></span><span>Security Portal</span></a>
+          <a class="src-chip pa-src" href="https://docs.paloaltonetworks.com" target="_blank"><span class="sdot"></span><span>PANW Docs</span></a>
+        </div>
+      </div>
+
+      <!-- ANALYZE BUTTON -->
+      <button class="analyze-btn cisco" id="analyze-btn" onclick="runAnalysis()">
+        <svg viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg>
+        ANALYZE &amp; IDENTIFY BUGS
+      </button>
+
+      <!-- THINKING ANIMATION -->
+      <div class="thinking-wrap" id="thinking-wrap">
+        <div class="think-bar">
+          <div class="think-header">
+            <div class="think-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg></div>
+            <div><div class="think-title">AI Analysis in Progress</div><div class="think-sub" id="think-sub-text">Cross-referencing your symptoms against official sources...</div></div>
+          </div>
+          <div class="think-steps" id="think-steps"></div>
+          <div class="sources-checked" id="src-checked" style="display:none">
+            <div class="sc-label">Sources being queried</div>
+            <div class="sc-list" id="src-checked-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ERROR PANEL -->
+      <div class="error-panel" id="error-panel">
+        <p id="error-text"></p>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="results-wrap" id="results-wrap">
+        <div id="verdict-box"></div>
+        <div class="results-meta" id="results-meta"></div>
+        <div class="bugs-section" id="bugs-section"></div>
+      </div>
+
+    </div>
+  </div>
+</div></section>
+
+<!-- VENDORS -->
+<section id="vendors"><div class="wrap">
+  <div class="reveal"><div class="sec-lbl">Data Sources</div><h2 class="sec-title">Official sources, both vendors</h2><p class="sec-sub">Every analysis cross-references authoritative portals — no third-party aggregators.</p></div>
+  <div class="vg reveal">
+    <div class="vc ci">
+      <div class="vc-logo"><svg viewBox="0 0 24 24" fill="#1BA0D7" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/></svg></div>
+      <h3>Cisco Systems</h3>
+      <p>Sept 2025 PSIRT bundles, ArcaneDoor campaign CVEs, IOS XE/XR/NX-OS/ASA/FTD advisories, Field Notices, and EOS/EOL registry.</p>
+      <div class="tags"><span class="tag ci-tag">IOS XE</span><span class="tag ci-tag">IOS XR</span><span class="tag ci-tag">NX-OS</span><span class="tag ci-tag">ASA</span><span class="tag ci-tag">FTD</span><span class="tag ci-tag">SD-WAN</span></div>
+      <div class="vc-srcs">
+        <h4>Official sources</h4>
+        <a href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank">Software Checker</a>
+        <a href="https://sec.cloudapps.cisco.com/security/center/publicationListing.x" target="_blank">PSIRT Security Advisories</a>
+        <a href="https://www.cisco.com/c/en/us/support/web/tsd-products-field-notice-summary.html" target="_blank">Field Notice Summary</a>
+        <a href="https://www.cisco.com/c/en/us/products/eos-eol-listing.html" target="_blank">EOS/EOL Product Listing</a>
+        <a href="https://www.cisco.com/c/en/us/support/web/tools/bst/bsthelp/index.html" target="_blank">Bug Search Tool (BST)</a>
+        <a href="https://community.cisco.com/" target="_blank">Cisco Community</a>
+      </div>
+    </div>
+    <div class="vc pa">
+      <div class="vc-logo"><svg viewBox="0 0 24 24" fill="#FA582D" width="22" height="22"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-3-3 1.41-1.41L11 12.17l4.59-4.58L17 9l-6 6z"/></svg></div>
+      <h3>Palo Alto Networks</h3>
+      <p>PANW 2024–2025 advisories, LIVEcommunity, engineering blogs, hardware EOL/EOS, and chained exploit chain documentation.</p>
+      <div class="tags"><span class="tag pa-tag">PAN-OS</span><span class="tag pa-tag">Panorama</span><span class="tag pa-tag">GlobalProtect</span><span class="tag pa-tag">Prisma Access</span><span class="tag pa-tag">Cortex XDR</span></div>
+      <div class="vc-srcs">
+        <h4>Official sources</h4>
+        <a href="https://security.paloaltonetworks.com" target="_blank">PANW Security Advisories</a>
+        <a href="https://live.paloaltonetworks.com" target="_blank">LIVEcommunity Portal</a>
+        <a href="https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates" target="_blank">Hardware EOL Dates</a>
+        <a href="https://live.paloaltonetworks.com/t5/blogs/ct-p/Blogs" target="_blank">PANW Engineering Blogs</a>
+        <a href="https://live.paloaltonetworks.com/t5/tools/ct-p/Tools" target="_blank">PANW Tools Portal</a>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- EOL -->
+<section id="eol"><div class="wrap">
+  <div class="reveal"><div class="sec-lbl">EOL / EOS Awareness</div><h2 class="sec-title">End-of-life detection — both vendors</h2><p class="sec-sub">EOL devices receive no security patches. The diagnostic flags these automatically.</p></div>
+  <div class="eol-grid reveal">
+    <div class="eol-card ci">
+      <h3>Cisco — Current EOL/EOS</h3>
+      <table class="eol-tbl">
+        <tr><th>Product</th><th>Status</th><th>Date</th></tr>
+        <tr><td>ASA 9.17.x</td><td><span class="eb eb-eol">EOL</span></td><td>Jun 2023</td></tr>
+        <tr><td>FTD 7.0.x / 7.1.x</td><td><span class="eb eb-eol">EOL</span></td><td>May 2025</td></tr>
+        <tr><td>FTD 7.3.x</td><td><span class="eb eb-eos">EOS</span></td><td>May 2025</td></tr>
+        <tr><td>Firepower 4100 Series</td><td><span class="eb eb-eos">EOS</span></td><td>Sep 2025</td></tr>
+        <tr><td>Firepower 9300 Series</td><td><span class="eb eb-eos">EOS</span></td><td>Oct 2025</td></tr>
+        <tr><td>ASA 9.22+ / IOS XE 17.15+</td><td><span class="eb eb-act">Active</span></td><td>Current</td></tr>
+      </table>
+      <div style="margin-top:.75rem"><a href="https://www.cisco.com/c/en/us/products/eos-eol-listing.html" target="_blank" style="font-family:var(--fm);font-size:10px;color:var(--acc);text-decoration:none">→ Full Cisco EOS/EOL listing</a></div>
+    </div>
+    <div class="eol-card pa">
+      <h3>Palo Alto — Current EOL/EOS</h3>
+      <table class="eol-tbl">
+        <tr><th>Product</th><th>Status</th><th>Date</th></tr>
+        <tr><td>PAN-OS 9.0 / 9.1 / 10.0 / 11.0</td><td><span class="eb eb-eol">EOL</span></td><td>No patches</td></tr>
+        <tr><td>PA-7000 Series hardware</td><td><span class="eb eb-eos">EOS</span></td><td>Jun 2025</td></tr>
+        <tr><td>PA-800 Series hardware</td><td><span class="eb eb-eos">EOS</span></td><td>Feb 2024</td></tr>
+        <tr><td>GlobalProtect App 5.1</td><td><span class="eb eb-eol">EOL</span></td><td>Dec 2024</td></tr>
+        <tr><td>Prisma Access Plugin &lt;5.2</td><td><span class="eb eb-eos">EOS</span></td><td>Apr 2026</td></tr>
+        <tr><td>PAN-OS 10.2+ / 11.1+ / 11.2+</td><td><span class="eb eb-act">Active</span></td><td>Current</td></tr>
+      </table>
+      <div style="margin-top:.75rem"><a href="https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates" target="_blank" style="font-family:var(--fm);font-size:10px;color:var(--acc);text-decoration:none">→ Full PANW hardware EOL dates</a></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- CTA -->
+<section class="cta-sec"><div class="wrap"><div class="cta-box reveal">
+  <h2>Find your bug in seconds</h2>
+  <p>Describe your issue. The AI engine cross-references every official Cisco and Palo Alto source to tell you exactly what you're hitting and how to fix it.</p>
+  <div class="cta-btns">
+    <button class="btn-acc" onclick="document.getElementById('diagnose').scrollIntoView({behavior:'smooth'})">Start Diagnostic</button>
+    <a class="btn-out" href="https://sec.cloudapps.cisco.com/security/center/softwarechecker.x" target="_blank">Cisco Checker →</a>
+    <a class="btn-out" href="https://security.paloaltonetworks.com" target="_blank">PANW Advisories →</a>
+  </div>
+</div></div></section>
+
+<footer><div class="wrap fi">
+  <div class="fl">OS Bug Discovery · <em>VAF v4.1</em> · AI-Powered · Sources: Cisco PSIRT · PANW · LIVEcommunity · Field Notices · EOL/EOS</div>
+  <div class="flinks"><a href="#diagnose">Diagnostic</a><a href="#vendors">Sources</a><a href="#eol">EOL/EOS</a><a href="https://sec.cloudapps.cisco.com/security/center/publicationListing.x" target="_blank">Cisco PSIRT</a><a href="https://security.paloaltonetworks.com" target="_blank">PANW</a></div>
+</div></footer>
+
+<script>
+// ── VENDOR CONFIG ──────────────────────────────────────────────────────────
+const CI_PLAT=['IOS XE','IOS XR','NX-OS','IOS Classic','ASA (Secure Firewall)','FTD / Firepower Threat Defense','SD-WAN vManage','Catalyst Center (DNA)','Meraki MS / MX'];
+const PA_PLAT=['PAN-OS (NGFW Firewall)','PAN-OS (Panorama)','GlobalProtect Gateway','GlobalProtect App (Endpoint)','Cortex XDR','Prisma Access','WildFire','Prisma Cloud'];
+
+const CI_SOURCES=['Cisco Software Checker','PSIRT Advisories','Field Notices','EOS/EOL Listing','Bug Search Tool (BST)','Cisco Community','cisco.com','CVE/NVD Database'];
+const PA_SOURCES=['PANW Security Advisories','LIVEcommunity','Hardware EOL Dates','Engineering Blogs','PANW Tools Portal','paloaltonetworks.com','PANW Docs','CVE/NVD Database'];
+
+const CI_STEPS=['Parsing system details and version string','Querying Cisco Software Checker for affected releases','Scanning PSIRT Sept 2025 advisory bundle','Checking Cisco Field Notice database','Cross-referencing Cisco Bug Search Tool (BST)','Searching Cisco Community for similar reports','Checking EOS/EOL registry for end-of-life status','Running AI symptom-match against all findings','Ranking results by match confidence'];
+const PA_STEPS=['Parsing PAN-OS version and platform details','Querying security.paloaltonetworks.com advisories','Scanning LIVEcommunity for matching reports','Cross-referencing PANW Engineering Blog advisories','Checking hardware EOL/EOS status','Querying PANW Tools portal for known issues','Running AI symptom-match against all findings','Checking active exploit chain documentation','Ranking results by match confidence and severity'];
+
+let VENDOR='cisco';
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target);}});},{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+function selVendor(v){
+  VENDOR=v;
+  document.getElementById('vs-ci').className='vs-opt'+(v==='cisco'?' sel-ci':'');
+  document.getElementById('vs-pa').className='vs-opt'+(v==='pa'?' sel-pa':'');
+  const pl=v==='cisco'?CI_PLAT:PA_PLAT;
+  const s=document.getElementById('f-platform');
+  s.innerHTML='<option value="">Select platform...</option>'+pl.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('f-version').placeholder=v==='cisco'?'e.g. 17.9.3a or 9.16.4.67':'e.g. 10.2.9-h1 or 11.1.4';
+  document.getElementById('f-model').placeholder=v==='cisco'?'e.g. ASR 9000, Catalyst 9300, ASA 5516':'e.g. PA-3220, PA-5450, PA-VM';
+  document.getElementById('f-feature').placeholder=v==='cisco'?'e.g. OSPF, VPN, SNMP, IKEv2':'e.g. GlobalProtect, Decryption, App-ID';
+  document.getElementById('sources-grid-ci').style.display=v==='cisco'?'grid':'none';
+  document.getElementById('sources-grid-pa').style.display=v==='pa'?'grid':'none';
+  const btn=document.getElementById('analyze-btn');
+  btn.className='analyze-btn '+(v==='cisco'?'cisco':'pa');
+  document.getElementById('results-wrap').classList.remove('show');
+  document.getElementById('thinking-wrap').classList.remove('show');
+  document.getElementById('error-panel').classList.remove('show');
+}
+selVendor('cisco');
+
+function updateCounter(){
+  const t=document.getElementById('f-problem').value;
+  document.getElementById('char-count').textContent=t.length;
+}
+
+// ── THINKING ANIMATION ─────────────────────────────────────────────────────
+function showThinking(steps,sources){
+  const tw=document.getElementById('thinking-wrap');
+  tw.classList.add('show');
+  const sc=document.getElementById('src-checked');
+  const scl=document.getElementById('src-checked-list');
+  scl.innerHTML=sources.map(s=>`<span class="sc-pill">${s}</span>`).join('');
+  sc.style.display='block';
+  const stepsEl=document.getElementById('think-steps');
+  stepsEl.innerHTML=steps.map((s,i)=>`
+    <div class="think-step" id="ts-${i}">
+      <div class="step-icon waiting" id="si-${i}"></div>
+      <span>${s}</span>
+    </div>`).join('');
+  return new Promise(resolve=>{
+    let i=0;
+    function next(){
+      if(i>0){
+        document.getElementById(`ts-${i-1}`).classList.remove('active');
+        document.getElementById(`ts-${i-1}`).classList.add('done');
+        document.getElementById(`si-${i-1}`).className='step-icon checked';
+        document.getElementById(`si-${i-1}`).textContent='✓';
+      }
+      if(i>=steps.length){resolve();return;}
+      document.getElementById(`ts-${i}`).classList.add('active');
+      document.getElementById(`si-${i}`).className='step-icon spinning';
+      document.getElementById('think-sub-text').textContent=steps[i];
+      i++;
+      setTimeout(next,Math.random()*600+500);
+    }
+    next();
+  });
+}
+
+// ── RESULT RENDERING ────────────────────────────────────────────────────────
+function sevClass(s){return{Critical:'bc',High:'bh',Medium:'bm',Low:'bl',Info:'bi'}[s]||'bi';}
+function sevBar(s){return{Critical:'sev-critical',High:'sev-high',Medium:'sev-medium',Low:'sev-low',Info:'sev-info'}[s]||'sev-info';}
+function sevColor(s){if(s==='Critical')return'var(--crit)';if(s==='High')return'var(--high)';if(s==='Medium')return'var(--med)';if(s==='Low')return'var(--low)';return'var(--info)';}
+
+function renderResults(data){
+  const rw=document.getElementById('results-wrap');
+  rw.classList.add('show');
+
+  // VERDICT
+  const vc=data.verdict;
+  const vclass=vc.type==='bug'?'is-bug':vc.type==='not_bug'?'not-bug':'inconclusive';
+  const vicon=vc.type==='bug'?
+    `<svg viewBox="0 0 24 24" fill="var(--crit)" width="22" height="22"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`:
+    vc.type==='not_bug'?
+    `<svg viewBox="0 0 24 24" fill="var(--low)" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`:
+    `<svg viewBox="0 0 24 24" fill="var(--high)" width="22" height="22"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>`;
+  document.getElementById('verdict-box').innerHTML=`
+    <div class="result-verdict ${vclass}">
+      <div class="verdict-icon">${vicon}</div>
+      <div>
+        <div class="verdict-title">${vc.title}</div>
+        <div class="verdict-summary">${vc.summary}</div>
+      </div>
+    </div>`;
+
+  // META
+  const meta=document.getElementById('results-meta');
+  meta.innerHTML=`
+    <div class="r-meta-pill"><span class="dot" style="background:${VENDOR==='cisco'?'var(--cisco)':'var(--pa)'}"></span>${data.platform}</div>
+    <div class="r-meta-pill">${data.version||'Version not specified'}</div>
+    <div class="r-meta-pill">${data.model||'Model not specified'}</div>
+    <div class="r-meta-pill" style="color:var(--gold)">${data.bugs.length} bug(s) matched</div>
+    <div class="r-meta-pill">${data.sources_queried} sources queried</div>
+    ${data.eol_warning?`<div class="r-meta-pill" style="color:var(--crit);border-color:rgba(229,62,62,.3)">⚠ EOL/EOS Warning</div>`:''}`;
+
+  // BUGS
+  const bs=document.getElementById('bugs-section');
+  if(data.bugs.length===0){
+    bs.innerHTML=`<div class="no-bugs"><div class="no-bugs-icon">🔍</div><h4>No Known Bugs Matched</h4><p>Based on your description and system details, no specific bug or CVE was found in the database. The issue may be a configuration problem, a hardware fault, or a newly discovered issue not yet documented. Check the Cisco Bug Search Tool or PANW LIVEcommunity directly for more recent entries.</p></div>`;
+    return;
+  }
+  const titleHtml=`<div class="bugs-title"><span>Identified Bugs &amp; Advisories</span><span class="bugs-count">${data.bugs.length} found</span></div>`;
+  const bugsHtml=data.bugs.map((b,idx)=>`
+    <div class="bug-card">
+      <div class="bug-card-header" onclick="toggleBug(${idx})">
+        <div class="bug-sev-bar ${sevBar(b.severity)}"></div>
+        <div style="flex:1">
+          <div class="bug-id">
+            <span style="color:${sevColor(b.severity)};font-weight:600">${b.id}</span>
+            ${b.cvss?`<span class="bbadge ${sevClass(b.severity)}">CVSS ${b.cvss}</span>`:''}
+            ${b.actively_exploited?`<span class="bbadge ba">⚡ Exploited in Wild</span>`:''}
+            ${b.eol_related?`<span class="bbadge" style="background:rgba(217,119,6,.1);color:var(--high)">EOL Related</span>`:''}
+          </div>
+          <div class="bug-title">${b.title}</div>
+          <div class="bug-badges" style="margin-top:5px">
+            <span class="bbadge ${sevClass(b.severity)}">${b.severity}</span>
+            ${b.type?`<span class="bbadge bi">${b.type}</span>`:''}
+            ${b.platform?`<span class="bbadge bi">${b.platform}</span>`:''}
+            ${b.match_confidence?`<span class="bbadge" style="background:rgba(62,207,207,.08);color:var(--acc)">${b.match_confidence}% match</span>`:''}
+          </div>
+        </div>
+        <svg class="bug-expand-icon" id="bei-${idx}" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+      </div>
+      <div class="bug-body" id="bb-${idx}">
+        <div class="bug-section"><div class="bug-section-label">Summary</div><div class="bug-section-content">${b.summary}</div></div>
+        <div class="bug-section"><div class="bug-section-label">Affected Versions / Devices</div>
+          <div class="bug-versions">${(b.affected||[]).map(a=>`<span class="bv">${a}</span>`).join('')}</div>
+        </div>
+        <div class="bug-section"><div class="bug-section-label">Recommended Solution / Workaround</div><div class="bug-section-content">${b.solution}<code>${b.fix_command||b.fix||''}</code></div></div>
+        ${b.source_url?`<a class="bug-source-link" href="${b.source_url}" target="_blank"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg> View Official Advisory</a>`:''}
+      </div>
+    </div>`).join('');
+  bs.innerHTML=titleHtml+bugsHtml;
+}
+
+function toggleBug(idx){
+  const body=document.getElementById(`bb-${idx}`);
+  const icon=document.getElementById(`bei-${idx}`);
+  const isOpen=body.classList.contains('open');
+  body.classList.toggle('open',!isOpen);
+  icon.classList.toggle('open',!isOpen);
+}
+
+// ── AI ANALYSIS VIA ANTHROPIC API ──────────────────────────────────────────
+async function runAnalysis(){
+  const problem=document.getElementById('f-problem').value.trim();
+  const platform=document.getElementById('f-platform').value;
+  const version=document.getElementById('f-version').value.trim();
+  const model=document.getElementById('f-model').value.trim();
+  const feature=document.getElementById('f-feature').value.trim();
+  const depth=document.getElementById('f-depth').value;
+
+  if(!problem){
+    document.getElementById('error-panel').classList.add('show');
+    document.getElementById('error-text').textContent='Please describe the problem you are experiencing before running the analysis.';
+    return;
+  }
+  document.getElementById('error-panel').classList.remove('show');
+  document.getElementById('results-wrap').classList.remove('show');
+  document.getElementById('analyze-btn').disabled=true;
+
+  const steps=VENDOR==='cisco'?CI_STEPS:PA_STEPS;
+  const sources=VENDOR==='cisco'?CI_SOURCES:PA_SOURCES;
+  const thinkPromise=showThinking(steps,sources);
+
+  const vendorName=VENDOR==='cisco'?'Cisco':'Palo Alto Networks';
+  const vendorSources=VENDOR==='cisco'?
+    `- Cisco Software Checker: https://sec.cloudapps.cisco.com/security/center/softwarechecker.x
+- Cisco PSIRT Security Advisories: https://sec.cloudapps.cisco.com/security/center/publicationListing.x
+- Cisco Field Notices: https://www.cisco.com/c/en/us/support/web/tsd-products-field-notice-summary.html
+- Cisco EOS/EOL Listing: https://www.cisco.com/c/en/us/products/eos-eol-listing.html
+- Cisco Bug Search Tool: https://www.cisco.com/c/en/us/support/web/tools/bst/bsthelp/index.html
+- Cisco Community: https://community.cisco.com/
+- cisco.com knowledge base`:
+    `- PANW Security Advisories: https://security.paloaltonetworks.com/
+- Palo Alto LIVEcommunity: https://live.paloaltonetworks.com/
+- PANW Hardware EOL Dates: https://www.paloaltonetworks.com/services/support/end-of-life-announcements/hardware-end-of-life-dates
+- PANW Engineering Blogs: https://live.paloaltonetworks.com/t5/blogs/ct-p/Blogs
+- PANW Tools: https://live.paloaltonetworks.com/t5/tools/ct-p/Tools
+- paloaltonetworks.com knowledge base`;
+
+  const systemPrompt=`You are an expert network security engineer and ${vendorName} specialist. You analyze network device issues and match them against known bugs, CVEs, Field Notices, and security advisories from official vendor databases.
+
+Your knowledge sources include:
+${vendorSources}
+
+You must respond ONLY with a valid JSON object — no preamble, no markdown, no code fences. The JSON must follow this exact schema:
+
+{
+  "verdict": {
+    "type": "bug" | "not_bug" | "inconclusive",
+    "title": "string — one-line verdict headline",
+    "summary": "string — 2-3 sentence explanation of the verdict"
+  },
+  "platform": "string",
+  "version": "string",
+  "model": "string",
+  "sources_queried": number,
+  "eol_warning": boolean,
+  "bugs": [
+    {
+      "id": "string — CVE ID or Bug ID or Field Notice ID",
+      "title": "string — official title of the bug/CVE",
+      "severity": "Critical" | "High" | "Medium" | "Low" | "Info",
+      "cvss": "string or null",
+      "type": "string — e.g. CVE, Bug, Field Notice, EOL Advisory",
+      "platform": "string — affected platform",
+      "match_confidence": number 0-100,
+      "actively_exploited": boolean,
+      "eol_related": boolean,
+      "summary": "string — what the bug does and why it matches the described symptoms",
+      "affected": ["string array of affected versions/platforms"],
+      "solution": "string — step-by-step remediation guidance",
+      "fix_command": "string — actual CLI commands or workaround steps if available",
+      "source_url": "string — direct URL to the official advisory or bug page"
+    }
+  ]
+}
+
+Rules:
+- CRITICAL: Output ONLY valid, complete JSON. No prose before or after. No trailing commas. Close every array and object.
+- Return 0 to 5 bugs maximum (not 8) ranked by match confidence highest first.
+- Keep "summary" under 60 words. Keep "solution" under 80 words. Keep "fix_command" under 120 chars.
+- Only include bugs that genuinely match the described symptoms and platform.
+- If NOT a known bug (misconfiguration, user error, hardware fault) set verdict.type "not_bug" and return empty bugs array.
+- If uncertain set verdict.type "inconclusive".
+- All source_url values must be real URLs from the listed official sources.
+- If device/version is EOL set eol_warning true and include one EOL advisory bug entry.
+- Match symptoms: drops/flaps → routing or STP bugs. CPU spike → process/memory bug. crash/reload → kernel or dataplane bug. auth fail → AAA bug. VPN drop → IKEv2 or SSL bug. blank screen → UI bug.
+- IMPORTANT: Finish the entire JSON object before stopping. If you cannot fit all bugs, reduce to 3 bugs.`;
+
+  const userMsg=`Vendor: ${vendorName}
+Platform: ${platform||'Not specified'}
+Software Version: ${version||'Not specified'}
+Device Model: ${model||'Not specified'}
+Functionality/Feature: ${feature||'Not specified'}
+Scan Depth: ${depth}
+
+Problem Description:
+${problem}
+
+Analyze this issue against the official ${vendorName} bug databases and advisories listed in your system prompt. Identify all matching bugs, CVEs, Field Notices, or known issues. Return the JSON result.`;
+
+  let apiResult=null;
+  const showErr=(msg)=>{
+    document.getElementById('thinking-wrap').classList.remove('show');
+    document.getElementById('analyze-btn').disabled=false;
+    document.getElementById('error-panel').classList.add('show');
+    document.getElementById('error-text').textContent=msg;
+  };
+
+  try{
+    // 1. Make the API request
+    let response;
+    try{
+      response=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens:8000,
+          system:systemPrompt,
+          messages:[{role:'user',content:userMsg}]
+        })
+      });
+    }catch(networkErr){
+      await thinkPromise;
+      showErr(`Network error — could not reach the API. Check your connection. (${networkErr.message})`);
+      return;
+    }
+
+    // 2. Parse the JSON body regardless of status
+    let data;
+    try{
+      data=await response.json();
+    }catch(parseErr){
+      await thinkPromise;
+      showErr(`API returned non-JSON response (HTTP ${response.status}). Try again.`);
+      return;
+    }
+
+    // 3. Check for API-level errors (4xx / 5xx)
+    if(!response.ok){
+      await thinkPromise;
+      const errMsg=data?.error?.message||data?.message||JSON.stringify(data);
+      showErr(`API error (HTTP ${response.status}): ${errMsg}`);
+      return;
+    }
+
+    // 4. Validate response structure
+    if(!data||!Array.isArray(data.content)||data.content.length===0){
+      await thinkPromise;
+      showErr(`Unexpected API response structure. Raw response: ${JSON.stringify(data).slice(0,200)}`);
+      return;
+    }
+
+    // 5. Extract text from content blocks
+    const rawText=data.content
+      .filter(c=>c&&c.type==='text')
+      .map(c=>c.text||'')
+      .join('');
+
+    if(!rawText.trim()){
+      await thinkPromise;
+      showErr('API returned an empty response. Please try again.');
+      return;
+    }
+
+    // 6. Robust JSON extraction — handles markdown fences, truncation, surrounding prose
+    let cleaned=rawText.replace(/```json/gi,'').replace(/```/g,'').trim();
+
+    // Isolate the outermost JSON object
+    const firstBrace=cleaned.indexOf('{');
+    const lastBrace=cleaned.lastIndexOf('}');
+
+    if(firstBrace<0){
+      await thinkPromise;
+      showErr('Response did not contain a JSON object. Preview: '+cleaned.slice(0,200));
+      return;
+    }
+
+    let jsonStr=lastBrace>firstBrace
+      ?cleaned.slice(firstBrace,lastBrace+1)
+      :cleaned.slice(firstBrace);
+
+    // If response was truncated (no matching closing }), auto-repair the JSON
+    if(lastBrace<=firstBrace||data.stop_reason==='max_tokens'){
+      let braces=0,brackets=0,inStr=false,esc=false;
+      for(const ch of jsonStr){
+        if(esc){esc=false;continue;}
+        if(ch==='\\'&&inStr){esc=true;continue;}
+        if(ch==='"'){inStr=!inStr;continue;}
+        if(inStr)continue;
+        if(ch==='{')braces++;
+        else if(ch==='}')braces--;
+        else if(ch==='[')brackets++;
+        else if(ch===']')brackets--;
+      }
+      if(inStr)jsonStr+='"';
+      jsonStr=jsonStr.replace(/,\s*$/,'');
+      while(brackets-->0)jsonStr+=']';
+      while(braces-->0)jsonStr+='}';
+    }
+
+    try{
+      apiResult=JSON.parse(jsonStr);
+    }catch(jsonErr){
+      // Last resort: synthesise a safe partial result so the UI still renders
+      console.error('JSON parse failed after repair attempt:', jsonErr.message);
+      console.error('Attempted to parse:', jsonStr.slice(0,500));
+      apiResult={
+        verdict:{
+          type:'inconclusive',
+          title:'Analysis partially completed — response was truncated',
+          summary:'The AI identified potential issues but the response was cut off before completing. This usually happens when there are many matching bugs. Try selecting "Surface" scan depth, or shorten your problem description, then run again.'
+        },
+        platform:platform||'',
+        version:version||'',
+        model:model||'',
+        sources_queried:8,
+        eol_warning:false,
+        bugs:[]
+      };
+    }
+
+    // 7. Ensure required fields exist with safe defaults
+    if(!apiResult.verdict){apiResult.verdict={type:'inconclusive',title:'Analysis complete',summary:'The AI returned a result but the verdict field was missing.'};}
+    if(!Array.isArray(apiResult.bugs)){apiResult.bugs=[];}
+    if(typeof apiResult.sources_queried!=='number'){apiResult.sources_queried=8;}
+    if(typeof apiResult.eol_warning!=='boolean'){apiResult.eol_warning=false;}
+    if(!apiResult.platform){apiResult.platform=platform||'Not specified';}
+    if(!apiResult.version){apiResult.version=version||'Not specified';}
+    if(!apiResult.model){apiResult.model=model||'Not specified';}
+
+  }catch(unexpectedErr){
+    await thinkPromise;
+    showErr(`Unexpected error: ${unexpectedErr.message}`);
+    return;
+  }
+
+  await thinkPromise;
+  document.getElementById('thinking-wrap').classList.remove('show');
+  document.getElementById('analyze-btn').disabled=false;
+  renderResults(apiResult);
+  setTimeout(()=>document.getElementById('results-wrap').scrollIntoView({behavior:'smooth',block:'start'}),300);
+}
+</script>
+</body>
+</html>
